@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Socket</title>
+    <!-- CSS only -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-gH2yIJqKdNHPEq0n4Mqa/HGKIhSkIHeL5AyhkYV8i59U5AR6csBvApHHNl/vI1Bx" crossorigin="anonymous">
+</head>
+<body>
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-4">
+            <div>SockJs, Stomp - SlowV</div>
+            <button type="button" id="emit" class="btn btn-primary btn-sm">Send data</button>
+        </div>
+        <div class="col-4 mt-5 performance-filter"></div>
+        <div class="col-4 mt-5 status-filter"></div>
+    </div>
+</div>
+</body>
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<!-- JavaScript Bundle with Popper -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/js/bootstrap.min.js"></script>
+<script>
+    $(document).ready(() => {
+        const BASE_URL = 'http://localhost:8281'
+        const PATH = '/report-service/websocket'
+        const AGENT_CHANNEL = '/agent'
+
+        let stompClient = connect(prepareExternalUrl(PATH));
+        const headers = {};
+
+        stompClient.connect(headers, function (frame) {
+            console.log('Connected: ' + frame);
+            stompClient.subscribe(AGENT_CHANNEL + '/test/data', function (data) {
+            });
+
+            stompClient.subscribe(AGENT_CHANNEL + '/started', ({body}) => {
+                console.log('Subscribe Agent: ', body)
+                const data = JSON.parse(body);
+                genFilters(data.performanceFilters, '.performance-filter')
+                genFilters(data.statusFilters, '.status-filter')
+            })
+
+            stompClient.subscribe(AGENT_CHANNEL + '/errors', data => {
+                console.log('Data error: ', data.body)
+            });
+
+        }, error => {
+            console.log("STOMP error " + error);
+        });
+
+        function sendTest() {
+            stompClient.send(AGENT_CHANNEL + '/test', headers, "SlowV");
+        }
+
+        function connect(url) {
+            const socket = new SockJS(url);
+            return Stomp.over(socket, {protocols: ['v12.stomp']})
+        }
+
+        function prepareExternalUrl(path) {
+            return BASE_URL + path;
+        }
+
+        $("#emit").click(() => {
+            sendTest();
+        })
+
+        function genFilters(data, selector) {
+            let html = ''
+            data.forEach(item => {
+                html += `
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" value="" id="${item.field}" ${item.filter ? 'checked' : ''}>
+                      <label class="form-check-label" for="${item.field}">
+                        ${item.name}
+                      </label>
+                    </div>
+                `
+            })
+
+            $(selector).html(html)
+        }
+
+    })
+
+</script>
+</html>
